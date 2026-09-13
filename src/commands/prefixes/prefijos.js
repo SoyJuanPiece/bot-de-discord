@@ -122,7 +122,7 @@ Prefijo Activo: **${activePrefix ? `[${activePrefix.prefix_name}]` : 'Ninguno'}*
     // Instrucciones
     prefixesEmbed.addFields({
         name: '💡 Cómo Usar',
-        value: 'Usa `/prefijo equipar [nombre]` para cambiar tu prefijo\nUsa `/prefijo remover` para quitarlo',
+        value: 'Usa `/prefijos equipar [nombre]` para cambiar tu prefijo\nUsa `/prefijos remover` para quitarlo',
         inline: false
     });
     

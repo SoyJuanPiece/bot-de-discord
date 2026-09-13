@@ -18,6 +18,8 @@ module.exports = {
     cooldown: 5000, // 5 segundos
     
     async execute(interaction, client) {
+        await interaction.deferReply();
+        
         const targetUser = interaction.options.getUser('usuario') || interaction.user;
         const userId = targetUser.id;
         
@@ -28,9 +30,8 @@ module.exports = {
         const userData = client.db.getUser(userId);
         
         if (!userData) {
-            return interaction.reply({
-                content: '❌ No se pudo obtener la información del usuario.',
-                ephemeral: true
+            return interaction.editReply({
+                content: '❌ No se pudo obtener la información del usuario.'
             });
         }
         
@@ -101,7 +102,7 @@ module.exports = {
             })
             .setTimestamp();
         
-        await interaction.reply({
+        await interaction.editReply({
             embeds: [rankEmbed]
         });
     }

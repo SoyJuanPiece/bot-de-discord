@@ -39,7 +39,8 @@ module.exports = {
         }
         
         // Calcular recompensa (puede aumentar con el nivel)
-        const baseReward = parseInt(process.env.DAILY_REWARD_AMOUNT) || 100;
+        const guildConfig = client.db.getGuildConfig(interaction.guild.id);
+        const baseReward = guildConfig?.daily_reward || parseInt(process.env.DAILY_REWARD_AMOUNT) || 100;
         const levelBonus = Math.floor(userData.level * 5); // 5 monedas extra por nivel
         const totalReward = baseReward + levelBonus;
         

@@ -32,6 +32,8 @@ module.exports = {
     cooldown: 10000, // 10 segundos
     
     async execute(interaction, client) {
+        await interaction.deferReply();
+        
         const tipo = interaction.options.getString('tipo') || 'xp';
         const cantidad = interaction.options.getInteger('cantidad') || 10;
         
@@ -39,9 +41,8 @@ module.exports = {
         const allUsers = client.db.getTopUsers(100);
         
         if (allUsers.length === 0) {
-            return interaction.reply({
-                content: '❌ No hay usuarios registrados en el sistema de niveles.',
-                ephemeral: true
+            return interaction.editReply({
+                content: '❌ No hay usuarios registrados en el sistema de niveles.'
             });
         }
         
@@ -62,9 +63,7 @@ module.exports = {
                 emoji = '🪙';
                 break;
             case 'messages':
-                // Necesitamos obtener los datos completos con mensajes
-                const stmt = client.db.db.prepare('SELECT * FROM users ORDER BY messages_sent DESC LIMIT ?');
-                sortedUsers = stmt.all(cantidad);
+                sortedUsers = client.db._all('SELECT * FROM users ORDER BY messages_sent DESC LIMIT ?', [cantidad]);
                 rankingType = 'Mensajes';
                 emoji = '💬';
                 break;
@@ -129,7 +128,7 @@ module.exports = {
             text: `Total de usuarios: ${allUsers.length} • Actualizado: ${new Date().toLocaleDateString('es-ES')}`
         });
         
-        await interaction.reply({
+        await interaction.editReply({
             embeds: [leaderboardEmbed]
         });
     }

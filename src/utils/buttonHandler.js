@@ -1,8 +1,5 @@
-const { ButtonStyle } = require('discord.js');
+const { ButtonStyle, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType } = require('discord.js');
 
-/**
- * Maneja las interacciones de botones
- */
 async function handleInteraction(interaction, client, action, params) {
     switch (action) {
         case 'shop':
@@ -11,31 +8,19 @@ async function handleInteraction(interaction, client, action, params) {
         case 'ticket':
             await handleTicketButton(interaction, client, params);
             break;
+        case 'panel':
+            await handlePanelButton(interaction, client, params);
+            break;
         default:
             console.log(`Acción de botón desconocida: ${action}`);
     }
 }
 
-/**
- * Maneja botones de la tienda
- */
 async function handleShopButton(interaction, client, buttonType) {
     if (buttonType === 'refresh') {
-        // Actualizar la tienda
-        const items = client.db.getAllShopItems();
-        
-        if (items.length === 0) {
-            return interaction.reply({
-                content: '❌ La tienda está vacía actualmente.',
-                ephemeral: true
-            });
-        }
-        
         const userData = client.db.getUser(interaction.user.id);
         const userCoins = userData ? userData.coins : 0;
         
-        // Reconstruir embed (simplificado)
-        const { EmbedBuilder } = require('discord.js');
         const shopEmbed = new EmbedBuilder()
             .setColor(0x0099ff)
             .setTitle('🛒 Tienda de TitanBot')
@@ -54,15 +39,11 @@ async function handleShopButton(interaction, client, buttonType) {
     }
 }
 
-/**
- * Maneja botones de tickets
- */
 async function handleTicketButton(interaction, client, params) {
     const ticketAction = params[0];
     const ticketNumber = params[1];
     
     if (ticketAction === 'close') {
-        // Verificar permisos (solo staff o creador del ticket)
         const ticket = client.db.getTicketByChannel(interaction.channel.id);
         
         if (!ticket) {
@@ -81,9 +62,6 @@ async function handleTicketButton(interaction, client, params) {
                 ephemeral: true
             });
         }
-        
-        // Mostrar modal para razón de cierre
-        const { ModalBuilder, TextInputBuilder, TextInputStyle, ActionRowBuilder } = require('discord.js');
         
         const modal = new ModalBuilder()
             .setCustomId(`modal_close_${ticketNumber}`)
@@ -104,12 +82,33 @@ async function handleTicketButton(interaction, client, params) {
         await interaction.showModal(modal);
         
     } else if (ticketAction === 'add') {
-        // Mostrar select menu para agregar usuario
         await interaction.reply({
             content: '➕ Usa `/ticket agregar [@usuario]` para agregar alguien al ticket.',
             ephemeral: true
         });
     }
+}
+
+async function handlePanelButton(interaction, client, params) {
+    const categoria = params.slice(1).join('_');
+    
+    const modal = new ModalBuilder()
+        .setCustomId(`modal_ticket_${categoria}`)
+        .setTitle(`🎫 Ticket - ${categoria.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}`);
+    
+    const reasonInput = new TextInputBuilder()
+        .setCustomId('ticket_reason')
+        .setLabel('Describe tu problema o consulta')
+        .setStyle(TextInputStyle.Paragraph)
+        .setPlaceholder('Escribe el motivo detallado del ticket...')
+        .setMinLength(10)
+        .setMaxLength(500)
+        .setRequired(true);
+    
+    const row = new ActionRowBuilder().addComponents(reasonInput);
+    modal.addComponents(row);
+    
+    await interaction.showModal(modal);
 }
 
 module.exports = { handleInteraction };

@@ -19,6 +19,8 @@ module.exports = {
     cooldown: 5000,
     
     async execute(interaction, client) {
+        await interaction.deferReply();
+        
         const itemId = interaction.options.getInteger('item_id');
         const userId = interaction.user.id;
         const guildId = interaction.guild.id;
@@ -31,34 +33,29 @@ module.exports = {
         const item = client.db.getShopItem(itemId);
         
         if (!item) {
-            return interaction.reply({
+            return interaction.editReply({
                 content: '❌ Ese item no existe en la tienda.',
-                ephemeral: true
             });
         }
         
         if (!item.enabled) {
-            return interaction.reply({
+            return interaction.editReply({
                 content: '❌ Ese item no está disponible actualmente.',
-                ephemeral: true
             });
         }
         
         // Verificar saldo
         if (userData.coins < item.price) {
             const missing = item.price - userData.coins;
-            return interaction.reply({
+            return interaction.editReply({
                 content: `❌ **Saldo insuficiente.**\n\n💰 Tu saldo: ${userData.coins.toLocaleString()} 🪙\n💵 Precio: ${item.price.toLocaleString()} 🪙\n📉 Te faltan: **${missing.toLocaleString()} 🪙**`,
-                ephemeral: true
             });
         }
         
         // Procesar compra
         try {
             // Deducir monedas
-            client.db.db.prepare(`
-                UPDATE users SET coins = coins - ? WHERE user_id = ?
-            `).run(item.price, userId);
+            client.db._run('UPDATE users SET coins = coins - ? WHERE user_id = ?', [item.price, userId]);
             
             // Registrar compra
             client.db.recordPurchase(userId, item.id, item.name, item.price);
@@ -85,18 +82,12 @@ module.exports = {
                 case 'prefix':
                     if (item.prefix_name) {
                         client.db.unlockPrefix(userId, item.prefix_name);
-                        deliveryMessage = `✅ Has desbloqueado el prefijo **[${item.prefix_name}]**.\n\nUsa \\\`/prefijo equipar ${item.prefix_name}\\\` para usarlo.`;
+                        deliveryMessage = `✅ Has desbloqueado el prefijo **[${item.prefix_name}]**.\n\nUsa \\\`/prefijos equipar ${item.prefix_name}\\\` para usarlo.`;
                     }
                     break;
                     
                 case 'crate':
                     if (item.crate_key) {
-                        // Guardar la llave en la base de datos
-                        client.db.db.prepare(`
-                            INSERT INTO purchases (user_id, item_id, item_name, price_paid, delivered)
-                            VALUES (?, ?, ?, ?, 1)
-                        `).run(userId, item.id, `${item.crate_key}_key`, item.price);
-                        
                         deliveryMessage = `✅ Has recibido una **${item.name}**.\n\nVe al spawn del servidor de Minecraft para abrir los crates.`;
                     }
                     break;
@@ -142,7 +133,7 @@ module.exports = {
                 .setTimestamp();
             
             // Notificar en canal de logs si está configurado
-            const logChannelId = process.env.LOG_CHANNEL_ID;
+            const logChannelId = client.db.getLogChannel(interaction.guild.id);
             if (logChannelId) {
                 const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
                 if (logChannel) {
@@ -160,22 +151,18 @@ module.exports = {
                 }
             }
             
-            await interaction.reply({
+            await interaction.editReply({
                 embeds: [purchaseEmbed],
-                ephemeral: false
             });
             
         } catch (error) {
             console.error('❌ Error procesando compra:', error);
             
             // Reembolsar en caso de error
-            client.db.db.prepare(`
-                UPDATE users SET coins = coins + ? WHERE user_id = ?
-            `).run(item.price, userId);
+            client.db._run('UPDATE users SET coins = coins + ? WHERE user_id = ?', [item.price, userId]);
             
-            await interaction.reply({
+            await interaction.editReply({
                 content: `❌ Ha ocurrido un error procesando tu compra. Tus monedas han sido reembolsadas.\n\n🎫 Por favor abre un ticket si el problema persiste.`,
-                ephemeral: true
             });
         }
     }

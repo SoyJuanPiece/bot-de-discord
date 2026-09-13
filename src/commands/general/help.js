@@ -60,6 +60,16 @@ Bienvenido al sistema de ayuda de **TitanBot**, tu bot de administración para D
             inline: false
         });
         
+        // Comandos de Administración (solo visibles para admins)
+        const isAdmin = interaction.member.permissions.has('Administrator');
+        if (isAdmin) {
+            helpEmbed.addFields({
+                name: '⚙️ Administración',
+                value: '`/config ver` - Ver configuración actual\n`/config logs [#canal]` - Configurar canal de logs\n`/config tickets [#categoría]` - Configurar categoría de tickets\n`/config recompensas` - Configurar XP y monedas\n`/config automod [on/off]` - Activar/desactivar auto-mod',
+                inline: false
+            });
+        }
+        
         // Información adicional
         helpEmbed.addFields({
             name: '📌 Información Importante',

@@ -138,8 +138,9 @@ module.exports = {
             }
             
             // Log en canal de logs
-            if (process.env.LOG_CHANNEL_ID) {
-                const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID).catch(() => null);
+            const logChannelId = client.db.getLogChannel(interaction.guild.id);
+            if (logChannelId) {
+                const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
                 if (logChannel) {
                     const logEmbed = new EmbedBuilder()
                         .setColor(0xff4444)

@@ -70,6 +70,10 @@ module.exports = {
             }
         } catch (error) {
             console.error('Error obteniendo miembro:', error);
+            return interaction.reply({
+                content: '❌ No se pudo verificar al usuario. Asegúrate de que esté en el servidor.',
+                ephemeral: true
+            });
         }
         
         // Calcular fecha de expiración si se proporcionó duración
@@ -128,8 +132,9 @@ module.exports = {
         }
         
         // Log en canal de logs
-        if (process.env.LOG_CHANNEL_ID) {
-            const logChannel = await client.channels.fetch(process.env.LOG_CHANNEL_ID).catch(() => null);
+        const logChannelId = client.db.getLogChannel(interaction.guild.id);
+        if (logChannelId) {
+            const logChannel = await client.channels.fetch(logChannelId).catch(() => null);
             if (logChannel) {
                 const logEmbed = new EmbedBuilder()
                     .setColor(0xffaa00)

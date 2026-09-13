@@ -38,17 +38,15 @@ module.exports = {
 
                 await command.execute(interaction, client);
             } catch (error) {
-                console.error('❌ Error ejecutando comando:', error);
+                console.error('❌ Error ejecutando comando:', error.message);
                 
-                const errorMessage = {
-                    content: '❌ Ha ocurrido un error al ejecutar este comando.',
-                    ephemeral: true
-                };
-
-                if (interaction.replied || interaction.deferred) {
-                    await interaction.followUp(errorMessage);
-                } else {
-                    await interaction.reply(errorMessage);
+                if (!interaction.replied && !interaction.deferred) {
+                    try {
+                        await interaction.reply({
+                            content: '❌ Ha ocurrido un error al ejecutar este comando.',
+                            ephemeral: true
+                        });
+                    } catch (e) {}
                 }
             }
         }
@@ -58,17 +56,18 @@ module.exports = {
             try {
                 const [action, ...params] = interaction.customId.split('_');
                 
-                // Delegar al manejador de botones
                 const buttonHandler = require('../utils/buttonHandler');
                 await buttonHandler.handleInteraction(interaction, client, action, params);
             } catch (error) {
-                console.error('❌ Error manejando botón:', error);
+                console.error('❌ Error manejando botón:', error.message);
                 
                 if (!interaction.replied && !interaction.deferred) {
-                    await interaction.reply({
-                        content: '❌ Ha ocurrido un error al procesar este botón.',
-                        ephemeral: true
-                    });
+                    try {
+                        await interaction.reply({
+                            content: '❌ Ha ocurrido un error al procesar este botón.',
+                            ephemeral: true
+                        });
+                    } catch (e) {}
                 }
             }
         }
@@ -91,11 +90,10 @@ module.exports = {
             try {
                 const [action, ...params] = interaction.customId.split('_');
                 
-                // Delegar al manejador de modales
                 const modalHandler = require('../utils/modalHandler');
                 await modalHandler.handleInteraction(interaction, client, action, params);
             } catch (error) {
-                console.error('❌ Error manejando modal:', error);
+                console.error('❌ Error manejando modal:', error.message);
             }
         }
     }

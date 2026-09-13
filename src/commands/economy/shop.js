@@ -12,12 +12,13 @@ module.exports = {
     cooldown: 10000,
     
     async execute(interaction, client) {
+        await interaction.deferReply();
+        
         const items = client.db.getAllShopItems();
         
         if (items.length === 0) {
-            return interaction.reply({
-                content: '❌ La tienda está vacía actualmente.',
-                ephemeral: true
+            return interaction.editReply({
+                content: '❌ La tienda está vacía actualmente.'
             });
         }
         
@@ -87,7 +88,7 @@ Usa el menú desplegable para navegar por categorías o compra directamente con:
                     .setStyle(ButtonStyle.Secondary)
             );
         
-        await interaction.reply({
+        await interaction.editReply({
             embeds: [shopEmbed],
             components: [row]
         });

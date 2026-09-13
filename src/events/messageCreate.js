@@ -3,43 +3,32 @@ const { Events } = require('discord.js');
 module.exports = {
     name: Events.MessageCreate,
     async execute(message, client) {
-        // Ignorar mensajes de bots y del propio cliente
         if (message.author.bot || message.author.system) return;
-        
-        // Ignorar mensajes sin contenido (solo embeds, archivos, etc.)
         if (!message.content.trim() && message.attachments.size === 0) return;
+        if (!message.guild) return;
 
         const userId = message.author.id;
         const username = message.author.username;
 
         try {
-            // Asegurar que el usuario existe en la base de datos
             client.db.ensureUser(userId, username);
 
-            // Obtener configuración del servidor o usar valores por defecto
-            const xpPerMessage = parseInt(process.env.XP_PER_MESSAGE) || 15;
+            const guildConfig = client.db.getGuildConfig(message.guild.id);
+            const xpPerMessage = guildConfig?.xp_per_message || parseInt(process.env.XP_PER_MESSAGE) || 15;
 
-            // Verificar cooldown de XP para este usuario (evitar spam de mensajes)
-            const cooldownResult = client.db.checkCooldown(userId, 'xp_message', 60000); // 1 minuto
+            const cooldownResult = client.db.checkCooldown(userId, 'xp_message', 60000);
             
             if (cooldownResult.canUse) {
-                // Añadir XP al usuario
                 const result = client.db.addXP(userId, xpPerMessage);
                 
-                // Incrementar contador de mensajes
-                client.db.db.prepare(`
-                    UPDATE users SET messages_sent = messages_sent + 1 WHERE user_id = ?
-                `).run(userId);
+                client.db._run('UPDATE users SET messages_sent = messages_sent + 1 WHERE user_id = ?', [userId]);
 
-                // Si subió de nivel, enviar notificación
                 if (result && result.leveledUp) {
                     const { newLevel, oldLevel } = result;
                     
-                    // Verificar si hay prefijos desbloqueables por nivel
                     await checkLevelUpRewards(client, userId, newLevel);
                     
-                    // Solo notificar en el mismo canal si no es un canal de spam
-                    if (!message.channel.name.includes('spam') && !message.channel.name.includes('bot')) {
+                    if (message.channel.name && !message.channel.name.includes('spam') && !message.channel.name.includes('bot')) {
                         const levelUpEmbed = {
                             color: 0x00ff88,
                             title: '🎉 ¡Felicidades! Has subido de nivel',
@@ -57,7 +46,7 @@ module.exports = {
                                 }
                             ],
                             thumbnail: {
-                                url: message.author.displayAvatarURL()
+                                url: message.author.displayAvatarURL({ dynamic: true, size: 256 })
                             },
                             footer: {
                                 text: 'Sigue activo para ganar más recompensas'
@@ -71,22 +60,19 @@ module.exports = {
                     }
                 }
 
-                // Establecer cooldown
                 client.db.setCooldown(userId, 'xp_message', 60000);
             }
 
-            // Auto-moderación básica (se puede expandir)
-            await checkAutoMod(message, client);
+            if (guildConfig?.auto_mod_enabled !== 0) {
+                await checkAutoMod(message, client);
+            }
 
         } catch (error) {
-            console.error('❌ Error procesando mensaje:', error);
+            console.error('❌ Error procesando mensaje:', error.message);
         }
     }
 };
 
-/**
- * Verifica recompensas por subir de nivel
- */
 async function checkLevelUpRewards(client, userId, newLevel) {
     const prefixesByLevel = {
         5: 'Novato',
@@ -103,13 +89,10 @@ async function checkLevelUpRewards(client, userId, newLevel) {
     }
 }
 
-/**
- * Verificaciones básicas de auto-moderación
- */
 async function checkAutoMod(message, client) {
-    const content = message.content.toLowerCase();
+    const originalContent = message.content;
+    const content = originalContent.toLowerCase();
     
-    // Verificar spam de menciones
     if (message.mentions.users.size >= 5) {
         await message.delete().catch(() => {});
         await message.channel.send({
@@ -119,10 +102,9 @@ async function checkAutoMod(message, client) {
         return;
     }
 
-    // Verificar spam de mayúsculas (más del 70% del mensaje)
-    if (content.length > 50) {
-        const uppercaseCount = (content.match(/[A-ZÁÉÍÓÚÑ]/g) || []).length;
-        const totalLetters = (content.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ]/g) || []).length;
+    if (originalContent.length > 50) {
+        const uppercaseCount = (originalContent.match(/[A-ZÁÉÍÓÚÑ]/g) || []).length;
+        const totalLetters = (originalContent.match(/[a-zA-ZáéíóúñÁÉÍÓÚÑ]/g) || []).length;
         
         if (totalLetters > 0 && uppercaseCount / totalLetters > 0.7) {
             await message.delete().catch(() => {});
@@ -133,6 +115,4 @@ async function checkAutoMod(message, client) {
             return;
         }
     }
-
-    // Aquí se pueden agregar más verificaciones (palabras prohibidas, links, etc.)
 }
