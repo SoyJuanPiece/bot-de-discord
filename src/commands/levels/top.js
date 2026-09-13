@@ -24,7 +24,7 @@ module.exports = {
             option
                 .setName('cantidad')
                 .setDescription('Número de usuarios a mostrar (máx 20)')
-                .setMinValue(5)
+                .setMinValue(1)
                 .setMaxValue(20)
                 .setRequired(false)
         ),

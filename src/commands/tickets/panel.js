@@ -63,7 +63,7 @@ Un miembro del staff te atenderá lo antes posible.
                 .setStyle(ButtonStyle.Secondary)
         );
         
-        await canal.send({ embeds: [panelEmbed], components: [row] });
+        await canal.send({ embeds: [panelEmbed], components: [row] }).catch(() => {});
         
         await interaction.reply({
             content: `✅ Panel de tickets enviado a ${canal}`,

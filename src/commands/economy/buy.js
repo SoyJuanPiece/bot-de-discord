@@ -52,13 +52,13 @@ module.exports = {
             });
         }
         
-        // Procesar compra
+        let purchaseSuccess = false;
         try {
-            // Deducir monedas
-            client.db._run('UPDATE users SET coins = coins - ? WHERE user_id = ?', [item.price, userId]);
-            
-            // Registrar compra
-            client.db.recordPurchase(userId, item.id, item.name, item.price);
+            client.db.withTransaction(db => {
+                db._run('UPDATE users SET coins = coins - ? WHERE user_id = ?', [item.price, userId]);
+                db.recordPurchase(userId, item.id, item.name, item.price);
+            });
+            purchaseSuccess = true;
             
             // Entregar item según tipo
             let deliveryMessage = '';
@@ -157,13 +157,12 @@ module.exports = {
             
         } catch (error) {
             console.error('❌ Error procesando compra:', error);
-            
-            // Reembolsar en caso de error
-            client.db._run('UPDATE users SET coins = coins + ? WHERE user_id = ?', [item.price, userId]);
-            
-            await interaction.editReply({
-                content: `❌ Ha ocurrido un error procesando tu compra. Tus monedas han sido reembolsadas.\n\n🎫 Por favor abre un ticket si el problema persiste.`,
-            });
+            if (!purchaseSuccess) {
+                client.db._run('UPDATE users SET coins = coins + ? WHERE user_id = ?', [item.price, userId]);
+                await interaction.editReply({ content: `❌ Ha ocurrido un error procesando tu compra. Tus monedas han sido reembolsadas.\n\n🎫 Por favor abre un ticket si el problema persiste.` });
+            } else {
+                await interaction.editReply({ content: `❌ Ha ocurrido un error al entregar tu compra. Tus monedas fueron descontadas. Por favor abre un ticket si el problema persiste.` });
+            }
         }
     }
 };

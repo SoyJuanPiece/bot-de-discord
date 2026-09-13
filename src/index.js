@@ -1,6 +1,6 @@
 require('dotenv').config();
 
-const { Client, GatewayIntentBits, Collection, ActivityType, Partials } = require('discord.js');
+const { Client, GatewayIntentBits, Collection, Partials } = require('discord.js');
 const Database = require('./database/Database');
 const { registerSlashCommands } = require('./utils/commandRegistry');
 
@@ -13,7 +13,6 @@ const client = new Client({
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildVoiceStates,
         GatewayIntentBits.GuildPresences,
-        GatewayIntentBits.GuildModeration,
     ],
     partials: [
         Partials.Channel,
@@ -25,7 +24,6 @@ const client = new Client({
 
 // Colecciones globales
 client.commands = new Collection();
-client.cooldowns = new Collection();
 
 // Inicializar base de datos
 Database.create().then(db => {
@@ -69,41 +67,32 @@ Database.create().then(db => {
         }
     }
 
-    // Evento ready
-    client.once('ready', async () => {
-        console.log('╔════════════════════════════════════════╗');
-        console.log('║         🤖 TITANBOT ONLINE 🤖          ║');
-        console.log('╚════════════════════════════════════════╝');
-        console.log(`👤 Conectado como: ${client.user.tag}`);
-        console.log(`🏠 Servidores: ${client.guilds.cache.size}`);
-        console.log(`👥 Usuarios: ${client.users.cache.size}`);
-        
-        // Configurar actividad
-        client.user.setPresence({
-            activities: [{ 
-                name: '/help | TitanBot v1.0', 
-                type: ActivityType.Watching 
-            }],
-            status: 'online'
-        });
-        
-        // Registrar comandos slash
-        await registerSlashCommands(client);
-        
-        console.log('✨ Bot listo para servir a la comunidad');
-    });
-
     // Login
     client.login(process.env.DISCORD_TOKEN);
 }).catch(err => {
     console.error('❌ Error inicializando la base de datos:', err);
+    process.exit(1);
+});
+
+// Manejo de cierre limpio
+process.on('SIGINT', () => {
+    console.log('🛑 Cerrando TitanBot...');
+    if (client.db) client.db.close();
+    process.exit(0);
+});
+process.on('SIGTERM', () => {
+    console.log('🛑 Cerrando TitanBot...');
+    if (client.db) client.db.close();
+    process.exit(0);
 });
 
 // Manejo de errores no capturados
 process.on('unhandledRejection', error => {
     console.error('❌ Error no manejado:', error);
+    process.exit(1);
 });
 
 process.on('uncaughtException', error => {
     console.error('❌ Excepción no capturada:', error);
+    process.exit(1);
 });

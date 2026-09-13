@@ -3,7 +3,7 @@ const { Events } = require('discord.js');
 module.exports = {
     name: Events.MessageCreate,
     async execute(message, client) {
-        if (message.author.bot || message.author.system) return;
+        if (message.author.bot || message.system) return;
         if (!message.content.trim() && message.attachments.size === 0) return;
         if (!message.guild) return;
 

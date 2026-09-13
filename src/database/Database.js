@@ -108,8 +108,6 @@ class TitanDatabase {
             transcript_url TEXT, assigned_to TEXT, priority TEXT DEFAULT 'normal', FOREIGN KEY (user_id) REFERENCES users(user_id)
         )`);
 
-        try { this.db.run("ALTER TABLE tickets ADD COLUMN assigned_to TEXT"); } catch(e) {}
-        try { this.db.run("ALTER TABLE tickets ADD COLUMN priority TEXT DEFAULT 'normal'"); } catch(e) {}
 
         this.db.run(`CREATE TABLE IF NOT EXISTS ticket_participants (
             id INTEGER PRIMARY KEY AUTOINCREMENT, ticket_id INTEGER,
@@ -150,7 +148,8 @@ class TitanDatabase {
         this.db.run(`CREATE TABLE IF NOT EXISTS guild_config (
             guild_id TEXT PRIMARY KEY, welcome_channel TEXT,
             log_channel TEXT, ticket_category TEXT, muted_role TEXT,
-            staff_role TEXT, xp_per_message INTEGER DEFAULT 15,
+            staff_role TEXT, ticket_staff_role TEXT,
+            xp_per_message INTEGER DEFAULT 15,
             xp_per_voice_minute INTEGER DEFAULT 5, daily_reward INTEGER DEFAULT 100,
             auto_mod_enabled INTEGER DEFAULT 1,
             created_at INTEGER DEFAULT (strftime('%s','now'))
@@ -304,8 +303,9 @@ class TitanDatabase {
         const cooldown = this._get('SELECT * FROM cooldowns WHERE user_id = ? AND command = ?', [userId, command]);
         if (!cooldown) return { canUse: true };
         const now = Date.now();
-        if (now < cooldown.expires_at) {
-            const remaining = Math.ceil((cooldown.expires_at - now) / 1000);
+        const expiresAt = Number(cooldown.expires_at);
+        if (now < expiresAt) {
+            const remaining = Math.ceil((expiresAt - now) / 1000);
             return { canUse: false, remainingSeconds: remaining };
         }
         return { canUse: true };
@@ -316,6 +316,18 @@ class TitanDatabase {
         const expiresAt = now + cooldownMs;
         this._run('INSERT OR REPLACE INTO cooldowns (user_id, command, last_used, expires_at) VALUES (?,?,?,?)', [userId, command, now, expiresAt]);
     }
+    withTransaction(callback) {
+        this.db.run('BEGIN IMMEDIATE');
+        try {
+            const result = callback(this);
+            this.db.run('COMMIT');
+            return result;
+        } catch (e) {
+            this.db.run('ROLLBACK');
+            throw e;
+        }
+    }
+
 
     getGuildConfig(guildId) {
         let config = this._get('SELECT * FROM guild_config WHERE guild_id = ?', [guildId]);
@@ -327,7 +339,7 @@ class TitanDatabase {
     }
 
     setGuildConfig(guildId, field, value) {
-        const allowed = ['log_channel', 'ticket_category', 'muted_role', 'staff_role', 'xp_per_message', 'xp_per_voice_minute', 'daily_reward', 'auto_mod_enabled'];
+        const allowed = ['log_channel', 'ticket_category', 'muted_role', 'staff_role', 'ticket_staff_role', 'xp_per_message', 'xp_per_voice_minute', 'daily_reward', 'auto_mod_enabled'];
         if (!allowed.includes(field)) return false;
         this.db.run(`UPDATE guild_config SET ${field} = ? WHERE guild_id = ?`, [value, guildId]);
         return true;
