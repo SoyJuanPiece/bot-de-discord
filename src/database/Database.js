@@ -159,6 +159,13 @@ class TitanDatabase {
             id INTEGER PRIMARY KEY AUTOINCREMENT, user_id TEXT,
             command TEXT, last_used INTEGER, expires_at INTEGER
         )`);
+
+        this.db.run(`CREATE TABLE IF NOT EXISTS role_prefixes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, guild_id TEXT,
+            role_id TEXT, prefix_name TEXT,
+            created_at INTEGER DEFAULT (strftime('%s','now')),
+            UNIQUE(guild_id, role_id)
+        )`);
     }
 
     insertDefaultShopItems() {
@@ -353,6 +360,22 @@ class TitanDatabase {
     getTicketCategory(guildId) {
         const config = this.getGuildConfig(guildId);
         return config?.ticket_category || null;
+    }
+
+    getRolePrefixes(guildId) {
+        return this._all('SELECT * FROM role_prefixes WHERE guild_id = ?', [guildId]);
+    }
+
+    getRolePrefix(guildId, roleId) {
+        return this._get('SELECT * FROM role_prefixes WHERE guild_id = ? AND role_id = ?', [guildId, roleId]);
+    }
+
+    addRolePrefix(guildId, roleId, prefixName) {
+        this._run('INSERT OR REPLACE INTO role_prefixes (guild_id, role_id, prefix_name, created_at) VALUES (?,?,?,strftime(\'%s\',\'now\'))', [guildId, roleId, prefixName]);
+    }
+
+    removeRolePrefix(guildId, roleId) {
+        this._run('DELETE FROM role_prefixes WHERE guild_id = ? AND role_id = ?', [guildId, roleId]);
     }
 
     close() {

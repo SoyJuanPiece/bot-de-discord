@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder, PermissionFlagsBits, ChannelType } = require('discord.js');
+const { applyTargetPrefix } = require('../../utils/nicknameService');
 
 module.exports = {
     data: new SlashCommandBuilder()
@@ -75,6 +76,23 @@ module.exports = {
             subcommand
                 .setName('reset')
                 .setDescription('🔄 Resetea toda la configuración del bot')
+        )
+        .addSubcommand(subcommand =>
+            subcommand
+                .setName('rol-prefijo')
+                .setDescription('🏷️ Configura el prefijo automático de un rol')
+                .addRoleOption(option =>
+                    option
+                        .setName('rol')
+                        .setDescription('El rol que activará el prefijo en el apodo')
+                        .setRequired(true)
+                )
+                .addStringOption(option =>
+                    option
+                        .setName('prefijo')
+                        .setDescription('Prefijo a mostrar (ej: ADMIN). Vacío para quitar')
+                        .setRequired(false)
+                )
         ),
     
     cooldown: 5000,
@@ -109,6 +127,9 @@ module.exports = {
             case 'reset':
                 await handleReset(interaction, client, guildId);
                 break;
+            case 'rol-prefijo':
+                await handleRolPrefijo(interaction, client, guildId);
+                break;
         }
     }
 };
@@ -124,9 +145,14 @@ async function handleVer(interaction, client, guildId) {
         ? `<#${config.ticket_category}>`
         : '❌ No configurado (se crea automáticamente)';
     
-    const ticketStaffRole = config?.ticket_staff_role
+    const tickStaffRole = config?.ticket_staff_role
         ? `<@&${config.ticket_staff_role}>`
         : '❌ No configurado (solo el usuario y admins)';
+    
+    const rolePrefixes = client.db.getRolePrefixes(guildId);
+    const rolePrefixText = rolePrefixes?.length
+        ? rolePrefixes.map(p => `<@&${p.role_id}> → (${p.prefix_name})`).join('\n')
+        : '❌ Sin configurar';
     
     const xpPerMsg = config?.xp_per_message || 15;
     const dailyReward = config?.daily_reward || 100;
@@ -140,6 +166,7 @@ async function handleVer(interaction, client, guildId) {
             { name: '📝 Canal de Logs', value: logChannel, inline: true },
             { name: '🎫 Categoría de Tickets', value: ticketCategory, inline: true },
             { name: '👥 Rol Staff Tickets', value: ticketStaffRole, inline: true },
+            { name: '🏷️ Prefijos de Roles', value: rolePrefixText, inline: false },
             { name: '💬 XP por Mensaje', value: `${xpPerMsg}`, inline: true },
             { name: '🎁 Recompensa Diaria', value: `${dailyReward} 🪙`, inline: true },
             { name: '🛡️ Auto-Moderación', value: autoMod, inline: true }
@@ -243,4 +270,50 @@ async function handleReset(interaction, client, guildId) {
         .setTimestamp();
     
     await interaction.reply({ embeds: [embed] });
+}
+
+async function handleRolPrefijo(interaction, client, guildId) {
+    const rol = interaction.options.getRole('rol');
+    const prefijoRaw = interaction.options.getString('prefijo');
+
+    if (prefijoRaw) {
+        const prefijo = prefijoRaw.toUpperCase().replace(/[()\[\]]/g, '').trim().replace(/\s+/g, '_');
+        if (!prefijo) {
+            return interaction.reply({
+                content: '❌ El prefijo no puede estar vacío.',
+                ephemeral: true
+            });
+        }
+        client.db.addRolePrefix(guildId, rol.id, prefijo);
+
+        const embed = new EmbedBuilder()
+            .setColor(0x00ff88)
+            .setTitle('🏷️ Prefijo de Rol Configurado')
+            .setDescription(`${rol} mostrará el prefijo **(${prefijo})** en el apodo de sus miembros.`)
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed] });
+
+        // Aplicar prefijo a los miembros que ya tienen el rol
+        const members = interaction.guild.members.cache.filter(m => m.roles.cache.has(rol.id));
+        for (const member of members.values()) {
+            await applyTargetPrefix(member, client);
+        }
+    } else {
+        client.db.removeRolePrefix(guildId, rol.id);
+
+        const embed = new EmbedBuilder()
+            .setColor(0xff4444)
+            .setTitle('🏷️ Prefijo de Rol Eliminado')
+            .setDescription(`El prefijo automático de ${rol} fue removido.`)
+            .setTimestamp();
+
+        await interaction.reply({ embeds: [embed] });
+
+        // Quitar el prefijo de los miembros que lo tenían
+        const members = interaction.guild.members.cache.filter(m => m.roles.cache.has(rol.id));
+        for (const member of members.values()) {
+            await applyTargetPrefix(member, client);
+        }
+    }
 }
